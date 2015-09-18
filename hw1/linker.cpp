@@ -127,6 +127,16 @@ int main(int argc, char** argv)
 
 	output(mList);
 
+	// CLEAN MEMORY	
+	for(unsigned int i=0;i<mList.size();i++) {
+		module* m = mList[i];
+		vector<symbol*> defs = m->defList;
+		for(unsigned j=0; j<defs.size();j++) delete defs[j];
+		vector<instruction*> instrs = m->instrList;
+		for(unsigned j=0; j<instrs.size();j++) delete instrs[j];
+		delete m;
+	}
+
 	ifile.close();
 	return 0;
 }
