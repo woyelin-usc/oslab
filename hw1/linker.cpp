@@ -9,37 +9,107 @@ struct symbol
 {
 	string name;
 	int val;
+
+	symbol() {this->name=""; this->val=0;}
+	symbol(string name, int val) { this->name = name; this->val = val;}
 };
 
 struct instruction 
 {
-	string type="", buf="", opcode="", address="";
+	string type, buf;
+	instruction() {type=""; buf="";}
+	instruction(string type, string buf) {this->type=type; this->buf=buf;}
 };
 
-
-struct Module {
-	int numSymbolDefine=0;
-	vector<sym> defList;
-
-	int numSymbolUse=0;
-	vector<symbolUse> useList;
-
-	int numInstructions=0;
-	vector<instruction> instructionList;
-};
-
-void readFile(ifstream& ifile, vector<string>& vec1, vector<string>& vec2, string tmp)
+struct module 
 {
-	while(ifile>>tmp)  vec1.push_back(tmp); 
-	ifile.clear();
-	ifile.seekg(0);
-	while(ifile>>tmp) vec2.push_back(tmp); 
+	int base;
 
+	int numSymDef;
+	vector<symbol*> defList;
 
-	for(unsigned int i=0;i<vec1.size();i++) cout<<vec1[i]<<"_";
+	int numSymUse;
+	vector<string> useList;
+
+	int numInstr;
+	vector<instruction*> instrList;
+
+	module() {this->base=0; this->numSymDef=0; this->numSymUse=0; this->numInstr=0;}
+};
+
+void readDefList(ifstream& ifile, vector<module*>& mList, int idx, string& tmp)
+{
+	mList[idx]->numSymDef=stoi(tmp);
+	for(int i=0;i<mList[idx]->numSymDef;i++) {
+		ifile>>tmp;
+		string newName=tmp;
+		ifile>>tmp;
+		int newVal=stoi(tmp)+mList[idx]->base;
+
+		mList[idx]->defList.push_back(new symbol(newName, newVal));
+	}
+}
+
+void readUseList(ifstream& ifile, vector<module*>& mList, int idx, string& tmp)
+{
+	mList[idx]->numSymUse=stoi(tmp);
+	for(int i=0;i<mList[idx]->numSymUse;i++) {
+		ifile>>tmp;
+		mList[idx]->useList.push_back(tmp);
+	}
+}
+
+void readInstrList(ifstream& ifile,vector<module*>& mList, int idx, string& tmp)
+{
+	mList[idx]->numInstr=stoi(tmp);
+	for(int i=0;i<mList[idx]->numInstr;i++) {
+		ifile>>tmp;
+		string newType=tmp;
+		ifile>>tmp;
+		string newBuf=tmp;
+		mList[idx]->instrList.push_back(new instruction(newType, newBuf));
+	}
+}
+
+void readfile1(ifstream& ifile, vector<module*>& mList, string& tmp)
+{
+	// i: idx of new module in the mList
+	int i=0;
+	while(ifile>>tmp) {
+		mList.push_back(new module());
+
+		// configure new module base address
+		if(!i) mList[i]->base=0;
+		else mList[i]->base=mList[i-1]->base + mList[i-1]->numInstr;
+		
+		readDefList(ifile, mList,i,tmp);
+		
+		ifile>>tmp;
+		readUseList(ifile, mList,i,tmp);
+
+		ifile>>tmp;
+		readInstrList(ifile, mList, i, tmp);
+
+		i++;
+	}
+}
+
+void output(vector<module*>& mList) 
+{
+	cout<<"MODULE SIZE: "<<mList.size()<<endl;
+	
+	cout<<"BASE ADDRESS: ";
+	for(unsigned int i=0;i<mList.size();i++) cout<<mList[i]->base<<",";
 	cout<<endl;
-	for(unsigned int i=0;i<vec2.size();i++) cout<<vec2[i]<<"_";
-	cout<<endl;	
+	
+	cout<<"SYMBOL TABLE:";
+	for(unsigned int i=0;i<mList.size();i++) {
+		vector<symbol*> tmpList = mList[i]->defList;
+		for(unsigned int j=0;j<tmpList.size();j++) {
+			cout<<" "<<tmpList[j]->name<<"="<<tmpList[j]->val;
+		}
+	}
+	cout<<endl;
 }
 
 int main(int argc, char** argv)
@@ -51,12 +121,11 @@ int main(int argc, char** argv)
 	if(ifile.fail()) { cerr<<"Unable to open file "<<argv[1]<<endl; return 1; }
 
 	// Here we open input file successfully
-	vector<string> vec1, vec2;
+	vector<module*> mList;
 	string tmp;
+	readfile1(ifile, mList, tmp);
 
-	readFile(ifile, vec1, vec2, tmp);
-
-
+	output(mList);
 
 	ifile.close();
 	return 0;
