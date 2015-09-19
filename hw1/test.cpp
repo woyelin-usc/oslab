@@ -1,24 +1,23 @@
+#include <sstream>
+#include <iomanip>
+#include <fstream>
 #include <iostream>
-#include <string>
-#include <vector>
-
-#include <unordered_map>
 
 using namespace std;
 
-struct obj
-{
-	vector<int*> vec;
-	obj(){}
-};
-
-
 int main(int argc, char** argv)
 {
-	obj* myobj = new obj();
-	myobj->vec.push_back(new int(5));
-	for(int i=0;i<myobj->vec.size();i++) {
-		cout<<myobj->vec[i]<< "@" <<myobj
+	ifstream ifile(argv[1]);
+	string word;
+	while(ifile>>word) {
+		cout<<word<<" ";
 	}
+	cout<<endl;
+	ifile.clear();
+	ifile.seekg(0);
+	while(ifile>>word) {
+		cout<<word<<" ";
+	}
+	cout<<endl;
 	return 0;
 }
