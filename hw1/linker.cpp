@@ -2,8 +2,13 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <ctype.h>
 
 using namespace std;
+
+int lineNum=0;
+int offset=0;
+int totalInstr=0;
 
 struct symbol
 {
@@ -37,36 +42,139 @@ struct module
 	module() {this->base=0; this->numSymDef=0; this->numSymUse=0; this->numInstr=0;}
 };
 
-void readDefList(ifstream& ifile, vector<module*>& mList, int idx, string& tmp)
-{
-	mList[idx]->numSymDef=stoi(tmp);
-	for(int i=0;i<mList[idx]->numSymDef;i++) {
-		ifile>>tmp;
-		string newName=tmp;
-		ifile>>tmp;
-		int newVal=stoi(tmp)+mList[idx]->base;
+bool isDigit(string&);
+bool isSymbol(string&);
+bool isType(string&);
+void parseErrMsg(int);
+string read(ifstream&);
+void skipDelimiter(ifstream&);
+void readDefList(ifstream& , vector<module*>& , int);
+void readUseList(ifstream& , vector<module*>& , int);
+void readInstrList(ifstream&,vector<module*>&, int);
+void readfile1(ifstream&, vector<module*>&, string&);
+void cleanMem(vector<module*>&);
+void close(vector<module*>&);
 
-		mList[idx]->defList.push_back(new symbol(newName, newVal));
+
+void close(vector<module*>& mList)
+{
+	cleanMem(mList);
+	exit(0);
+}
+
+bool isType(string& str)
+{
+	return str=="I"||str=="R"||str=="A"||str=="E";
+}
+
+bool isDigit(string& str)
+{
+	for(unsigned int i=0;i<str.length();i++) {
+		if(!isdigit(str[i])) return false;
+	}
+	return true;
+}
+
+bool isSymbol(string& str)
+{
+	if(!str.length()) return false;
+	for(unsigned int i=0;i<str.length();i++) {
+		if(!i) {
+			if(!isalpha(str[i])) return false;
+		}
+		else {
+			if(!isalnum(str[i])) return false;
+		}
+	}
+	return true;
+}
+
+void parseErrMsg(int type)
+{
+	static string errstr[] = {"NUM_EXPECTED", "SYM_EXPECTED", "ADDR_EXPECTED", 
+	"SYM_TOLONG", "TO_MANY_DEF_IN_MODULE", "TO_MANY_USE_IN_MODULE", "TO_MANY_INSTR",
+	"TYPE_EXPECTED" };
+
+	cout<<"Parse Error line "<<lineNum<<" offset "<<offset<<": "<<errstr[type]<<endl;
+}
+
+string read(ifstream& ifile)
+{
+	string str;
+	ifile>>str;
+	offset+=str.length();
+	return str;
+}
+
+void skipDelimiter(ifstream& ifile)
+{
+	while(!ifile.eof()) {
+		char ch=ifile.peek();
+		if(ch=='\n'){ ifile.get(); lineNum++; offset=0;}
+		else if(ch==' '||ch=='\t') { ifile.get(); offset++; }
+		else break;
 	}
 }
 
-void readUseList(ifstream& ifile, vector<module*>& mList, int idx, string& tmp)
+void readDefList(ifstream& ifile, vector<module*>& mList, int idx)
 {
+	string tmp=read(ifile);
+	if(!isDigit(tmp)) {parseErrMsg(0); close(mList);}
+	mList[idx]->numSymDef=stoi(tmp);
+	if(mList[idx]->numSymDef>16) { parseErrMsg(4); close(mList); }
+
+	for(int i=0;i<mList[idx]->numSymDef;i++) {
+		skipDelimiter(ifile);
+		if(ifile.eof()) { parseErrMsg(1); close(mList);}
+		tmp=read(ifile);
+		if(!isSymbol(tmp)) { parseErrMsg(1); close(mList);}
+		string symName=tmp;
+
+		skipDelimiter(ifile);
+		if(ifile.eof()) {parseErrMsg(0); close(mList);}
+		tmp=read(ifile);
+		if(!isDigit(tmp)){ parseErrMsg(0); close(mList);}
+		int symVal=stoi(tmp)+mList[idx]->base;
+
+		mList[idx]->defList.push_back(new symbol(symName, symVal));
+	}
+}
+
+void readUseList(ifstream& ifile, vector<module*>& mList, int idx)
+{
+	string tmp=read(ifile);
+	if(!isDigit(tmp)) { parseErrMsg(0); close(mList); }
 	mList[idx]->numSymUse=stoi(tmp);
+	if(mList[idx]->numSymUse>16) {parseErrMsg(5);close(mList);}
+
 	for(int i=0;i<mList[idx]->numSymUse;i++) {
-		ifile>>tmp;
+		skipDelimiter(ifile);
+		if(ifile.eof()) { parseErrMsg(1); close(mList);}
+		tmp=read(ifile);
+		if(!isSymbol(tmp)) { parseErrMsg(1); close(mList);}
 		mList[idx]->useList.push_back(tmp);
 	}
 }
 
-void readInstrList(ifstream& ifile,vector<module*>& mList, int idx, string& tmp)
+void readInstrList(ifstream& ifile,vector<module*>& mList, int idx)
 {
+	string tmp=read(ifile);
+	if(!isDigit(tmp))  { parseErrMsg(0); close(mList);}
+	totalInstr += stoi(tmp);
+	if(totalInstr>512) { parseErrMsg(6); close(mList);}
 	mList[idx]->numInstr=stoi(tmp);
+
 	for(int i=0;i<mList[idx]->numInstr;i++) {
-		ifile>>tmp;
-		string newType=tmp;
-		ifile>>tmp;
-		string newBuf=tmp;
+		skipDelimiter(ifile);
+		if(ifile.eof()) { parseErrMsg(7); close(mList); }
+		string newType=read(ifile);
+		if(!isType(newType)) { parseErrMsg(7); close(mList); }
+
+		skipDelimiter(ifile);
+		if(ifile.eof()) {parseErrMsg(2); close(mList);}
+		string newBuf = read(ifile);
+		if(!isDigit(newBuf)) {parseErrMsg(2); close(mList);}
+
 		mList[idx]->instrList.push_back(new instruction(newType, newBuf));
 	}
 }
@@ -75,21 +183,27 @@ void readfile1(ifstream& ifile, vector<module*>& mList, string& tmp)
 {
 	// i: idx of new module in the mList
 	int i=0;
-	while(ifile>>tmp) {
-		mList.push_back(new module());
+	while(!ifile.eof()) {
+		skipDelimiter(ifile);
+		if(ifile.eof()) break;		
+		else {
+			mList.push_back(new module());
+			
+			// configure new module base address
+			if(!i) mList[i]->base=0;
+			else mList[i]->base=mList[i-1]->base + mList[i-1]->numInstr;
 
-		// configure new module base address
-		if(!i) mList[i]->base=0;
-		else mList[i]->base=mList[i-1]->base + mList[i-1]->numInstr;
-		
-		readDefList(ifile, mList,i,tmp);
-		
-		ifile>>tmp;
-		readUseList(ifile, mList,i,tmp);
+			readDefList(ifile, mList, i);
+			skipDelimiter(ifile);
+			if(ifile.eof()) {parseErrMsg(0); close(mList);}
 
-		ifile>>tmp;
-		readInstrList(ifile, mList, i, tmp);
+			readUseList(ifile, mList, i);
+			skipDelimiter(ifile);
+			if(ifile.eof()) {parseErrMsg(0); close(mList);}
 
+			readInstrList(ifile, mList, i);
+			skipDelimiter(ifile);
+		}
 		i++;
 	}
 }
@@ -112,6 +226,18 @@ void output(vector<module*>& mList)
 	cout<<endl;
 }
 
+void cleanMem(vector<module*>& mList)
+{
+	for(unsigned int i=0;i<mList.size();i++) {
+		module* m = mList[i];
+		vector<symbol*> defs = m->defList;
+		for(unsigned j=0; j<defs.size();j++) delete defs[j];
+		vector<instruction*> instrs = m->instrList;
+		for(unsigned j=0; j<instrs.size();j++) delete instrs[j];
+		delete m;
+	}	
+}
+
 int main(int argc, char** argv)
 {
 	if(argc<2)  { cerr<<"Enter your input file."<<endl; return 1; }
@@ -127,15 +253,7 @@ int main(int argc, char** argv)
 
 	output(mList);
 
-	// CLEAN MEMORY	
-	for(unsigned int i=0;i<mList.size();i++) {
-		module* m = mList[i];
-		vector<symbol*> defs = m->defList;
-		for(unsigned j=0; j<defs.size();j++) delete defs[j];
-		vector<instruction*> instrs = m->instrList;
-		for(unsigned j=0; j<instrs.size();j++) delete instrs[j];
-		delete m;
-	}
+	cleanMem(mList);
 
 	ifile.close();
 	return 0;
