@@ -28,3 +28,4 @@
 *.app
 run
 *.dSYM
+*.DS_Store
