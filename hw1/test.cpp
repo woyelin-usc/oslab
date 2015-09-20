@@ -5,19 +5,18 @@
 
 using namespace std;
 
+void pass(string* strs)
+{
+	for(int i=0;i<3;i++) cout<<strs[i]<<endl;
+
+}
+
 int main(int argc, char** argv)
 {
-	ifstream ifile(argv[1]);
-	string word;
-	while(ifile>>word) {
-		cout<<word<<" ";
-	}
-	cout<<endl;
-	ifile.clear();
-	ifile.seekg(0);
-	while(ifile>>word) {
-		cout<<word<<" ";
-	}
-	cout<<endl;
-	return 0;
+	string strs[3];
+	strs[0]="aaa";
+	strs[1]="bbb";
+	strs[2]="ccc";
+
+	pass(strs);
 }
