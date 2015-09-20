@@ -13,7 +13,11 @@ int offset=1;
 int lastLineOffset=1;
 int totalInstr=0;
 
-vector<string> symRecord;
+vector<string> symOrderRecord;
+
+vector<int> moduleForSymNotUse;
+vector<string> symNotUse;
+
 
 struct symbol
 {
@@ -21,9 +25,10 @@ struct symbol
 	int val;
 	bool multiDef;
 	int moduleIdx;
+	bool defNoUse;
 
 	symbol() {this->name=""; this->val=0;}
-	symbol(string name, int val) { this->name = name; this->val = val; multiDef=false; moduleIdx=-1;}
+	symbol(string name, int val) { this->name = name; this->val = val; multiDef=false; moduleIdx=-1; defNoUse=false;}
 };
 
 struct instruction 
@@ -151,7 +156,7 @@ void readDefList(ifstream& ifile, vector<module*>& mList, int idx, unordered_map
 		if(got==symTable.end()) {
 			//mList[idx]->defList.push_back(newSym);
 			symTable.insert({symName, newSym});
-			symRecord.push_back(symName);
+			symOrderRecord.push_back(symName);
 			newSym->moduleIdx=idx;
 		}
 		else  { got->second->multiDef=true;}
@@ -264,8 +269,8 @@ void cleanMem(vector<module*>& mList)
 void printSymTable(vector<module*>& mList, unordered_map<string, symbol*>& symTable)
 {
 
-	for(unsigned int i=0; i<symRecord.size();i++) {
-		symbol* sym = symTable.find(symRecord[i])->second;
+	for(unsigned int i=0; i<symOrderRecord.size();i++) {
+		symbol* sym = symTable.find(symOrderRecord[i])->second;
 		if(sym->val>=mList[sym->moduleIdx]->numInstr+mList[sym->moduleIdx]->base) {
 			cout<<"Warning: Module "<<sym->moduleIdx+1
 			<<": "<<sym->name<<" to big "
@@ -277,8 +282,8 @@ void printSymTable(vector<module*>& mList, unordered_map<string, symbol*>& symTa
 	}
 
 	cout<<"Symbol Table "<<endl;
-	for(unsigned int i=0;i<symRecord.size();i++) {
-		symbol* sym = symTable.find(symRecord[i])->second;
+	for(unsigned int i=0;i<symOrderRecord.size();i++) {
+		symbol* sym = symTable.find(symOrderRecord[i])->second;
 		cout<<sym->name<<"="<<sym->val;
 		if(sym->multiDef) cout<<" Error: This variable is multiple times defined; first value used";
 		cout<<endl;
@@ -301,6 +306,7 @@ void printMemMap(vector<module*>& mList)
 
 void readDefList2(ifstream& ifile, vector<module*>& mList, unordered_map<string, symbol*>& symTable, int numDef)
 {
+
 	string word;
 	for(int i=0;i<numDef;i++) {
 		// read symbol(def) name
@@ -310,18 +316,23 @@ void readDefList2(ifstream& ifile, vector<module*>& mList, unordered_map<string,
 	}
 }
 
-void readUseList2(ifstream& ifile, vector<module*>& mList, unordered_map<string, symbol*>& symTable, int numUse, string* useList)
+void readUseList2(ifstream& ifile, vector<module*>& mList, unordered_map<string, symbol*>& symTable, int numUse, string* useList, bool used[])
 {
+
 	string word;
 	for(int i=0;i<numUse;i++) {
 		// read symbol(use) name
 		ifile>>word;
 		useList[i]=word;
+		used[i]=false;
+		unordered_map<string, symbol*>::iterator it=symTable.find(word);
+		if(it!=symTable.end()) it->second->defNoUse=true;
 	}
 }
 
-void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_map<string, symbol*>& symTable, int numInstr, int& memIdx, string* useList, int numUse)
+void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_map<string, symbol*>& symTable, int numInstr, int& memIdx, string* useList, bool used[], int numUse)
 {
+
 	string word;
 	for(int i=0;i<numInstr;i++) {
 		cout<<setw(3)<<setfill('0')<<memIdx++<<": ";
@@ -385,10 +396,30 @@ void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_
 				}
 				else {
 					cout<<setw(3)<<setfill('0')<<symTable.find(useList[addcode])->second->val<<endl;
+					used[addcode]=true;
 				}
 			}
 		}
 		else;
+	}
+	for(int i=0;i<numUse;i++) {
+		if(!used[i]) { moduleForSymNotUse.push_back(idx); symNotUse.push_back(useList[i]);}
+	}
+}
+
+void printWarning(unordered_map<string, symbol*>& symTable)
+{
+	for(unsigned int i=0;i<moduleForSymNotUse.size();i++) {
+		cout<<"Warning: Module "<<moduleForSymNotUse[i]+1<<": "
+		<<symNotUse[i]<<" appeared in the uselist but was not actually used"<<endl;
+	}
+
+	for(unsigned int i=0;i<symOrderRecord.size();i++) {
+		symbol* sym = symTable.find(symOrderRecord[i])->second;
+		if(!sym->defNoUse) {
+			cout<<"Warning: Module "<<sym->moduleIdx+1<<" : "
+			<<sym->name<<" was defined but never used"<<endl;
+		}
 	}
 }
 
@@ -398,21 +429,22 @@ void readfile2(ifstream& ifile, vector<module*>& mList, unordered_map<string, sy
 	int i=0, memIdx=0;
 	string word;
 	while(ifile>>word) {
-
-
-
 		readDefList2(ifile, mList, symTable, stoi(word));
 
 		ifile>>word;
 		int numUse = stoi(word);
 		string useList[numUse];
-		readUseList2(ifile, mList, symTable, numUse, useList);
+		bool used[numUse];
+		readUseList2(ifile, mList, symTable, numUse, useList, used);
 
 		ifile>>word;
-		readInstrList2(ifile, mList, i, symTable, stoi(word), memIdx, useList, numUse);
+		readInstrList2(ifile, mList, i, symTable, stoi(word), memIdx, useList, used,numUse);
 
 		i++;
 	}
+
+	cout<<endl;
+	printWarning(symTable);
 }
 
 
@@ -421,7 +453,6 @@ int main(int argc, char** argv)
 	if(argc<2)  { cerr<<"Enter your input file."<<endl; return 1; }
 	ifstream ifile(argv[1]);
 	if(ifile.fail()) { cerr<<"Unable to open file "<<argv[1]<<endl; return 1; }
-
 
 	// create a empty module list and symbol table
 	vector<module*> mList;
@@ -435,6 +466,7 @@ int main(int argc, char** argv)
 	ifile.clear();
 	ifile.seekg(0);
 
+	unordered_map<int, vector<string>> use;
 	readfile2(ifile, mList, symTable);
 
 
