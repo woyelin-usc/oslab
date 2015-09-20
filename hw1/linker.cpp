@@ -335,7 +335,7 @@ void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_
 
 		if(type=="I") {
 			if(address.length()>4) {
-				cout<<"9999 Error: Illegal opcode; treated as 9999"<<endl;
+				cout<<"9999 Error: Illegal immediate value; treated as 9999"<<endl;
 			}
 			else {
 				cout<<setw(4)<<setfill('0')<<address<<endl;
