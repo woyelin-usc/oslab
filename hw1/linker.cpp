@@ -61,17 +61,17 @@ void parseErrMsg(int);
 string read(ifstream&);
 void skipDelimiter(ifstream&);
 void readDefList(ifstream& , vector<module*>& , int);
-void readUseList(ifstream& , vector<module*>& , int);
-void readInstrList(ifstream&,vector<module*>&, int);
+void readUseList(ifstream& , vector<module*>& , int, unordered_map<string, symbol*>&);
+void readInstrList(ifstream&,vector<module*>&, int, unordered_map<string, symbol*>&);
 void readfile1(ifstream&, vector<module*>&, string&);
-void cleanMem(vector<module*>&);
-void close(vector<module*>&);
+void cleanMem(vector<module*>&, unordered_map<string, symbol*>&);
+void close(vector<module*>&, unordered_map<string, symbol*>&);
 void printSymTable(vector<module*>&, unordered_map<string, symbol*>&);
 
 
-void close(vector<module*>& mList)
+void close(vector<module*>& mList, unordered_map<string, symbol*>& symTable)
 {
-	cleanMem(mList);
+	cleanMem(mList, symTable);
 	exit(0);
 }
 
@@ -131,22 +131,22 @@ void skipDelimiter(ifstream& ifile)
 void readDefList(ifstream& ifile, vector<module*>& mList, int idx, unordered_map<string, symbol*>& symTable)
 {
 	string tmp=read(ifile);
-	if(!isDigit(tmp)) {parseErrMsg(0); close(mList);}
+	if(!isDigit(tmp)) {parseErrMsg(0); close(mList, symTable);}
 	//mList[idx]->numSymDef=stoi(tmp);
-	if(stoi(tmp)>16) { parseErrMsg(4); close(mList); }
+	if(stoi(tmp)>16) { parseErrMsg(4); close(mList, symTable); }
 	offset+=tmp.length();
 
 	for(int i=0;i<stoi(tmp);i++) {
 		skipDelimiter(ifile);
-		if(ifile.eof()) { parseErrMsg(1); close(mList);}
+		if(ifile.eof()) { parseErrMsg(1); close(mList, symTable);}
 		string symName=read(ifile);
-		if(!isSymbol(symName)) { parseErrMsg(1); close(mList);}
+		if(!isSymbol(symName)) { parseErrMsg(1); close(mList, symTable);}
 		offset+=symName.length();
 
 		skipDelimiter(ifile);
-		if(ifile.eof()) {parseErrMsg(0); close(mList);}
+		if(ifile.eof()) {parseErrMsg(0); close(mList, symTable);}
 		string symVal=read(ifile);
-		if(!isDigit(symVal)){ parseErrMsg(0); close(mList);}
+		if(!isDigit(symVal)){ parseErrMsg(0); close(mList, symTable);}
 		offset+=symVal.length();
 
 		symbol* newSym = new symbol(symName, stoi(symVal)+mList[idx]->base );
@@ -164,43 +164,43 @@ void readDefList(ifstream& ifile, vector<module*>& mList, int idx, unordered_map
 	}
 }
 
-void readUseList(ifstream& ifile, vector<module*>& mList, int idx)
+void readUseList(ifstream& ifile, vector<module*>& mList, int idx, unordered_map<string, symbol*>& symTable)
 {
 	string tmp=read(ifile);
-	if(!isDigit(tmp)) { parseErrMsg(0); close(mList); }
+	if(!isDigit(tmp)) { parseErrMsg(0); close(mList, symTable); }
 	//mList[idx]->numSymUse=stoi(tmp);
-	if(stoi(tmp)>16) {parseErrMsg(5);close(mList);}
+	if(stoi(tmp)>16) {parseErrMsg(5);close(mList, symTable);}
 	offset+=tmp.length();
 
 	for(int i=0;i<stoi(tmp);i++) {
 		skipDelimiter(ifile);
-		if(ifile.eof()) { parseErrMsg(1); close(mList);}
+		if(ifile.eof()) { parseErrMsg(1); close(mList, symTable);}
 		string symName=read(ifile);
-		if(!isSymbol(symName)) { parseErrMsg(1); close(mList);}
+		if(!isSymbol(symName)) { parseErrMsg(1); close(mList, symTable);}
 		//mList[idx]->useList.push_back(symName);
 	}
 }
 
-void readInstrList(ifstream& ifile,vector<module*>& mList, int idx)
+void readInstrList(ifstream& ifile,vector<module*>& mList, int idx, unordered_map<string, symbol*>& symTable)
 {
 	string tmp=read(ifile);
-	if(!isDigit(tmp))  { parseErrMsg(0); close(mList);}
+	if(!isDigit(tmp))  { parseErrMsg(0); close(mList, symTable);}
 	totalInstr += stoi(tmp);
-	if(totalInstr>512) { parseErrMsg(6); close(mList);}
+	if(totalInstr>512) { parseErrMsg(6); close(mList, symTable);}
 	mList[idx]->numInstr=stoi(tmp);
 	offset+=tmp.length();
 
 	for(int i=0;i<stoi(tmp);i++) {
 		skipDelimiter(ifile);
-		if(ifile.eof()) { parseErrMsg(2); close(mList); }
+		if(ifile.eof()) { parseErrMsg(2); close(mList, symTable); }
 		string newType=read(ifile);
-		if(!isType(newType)) { parseErrMsg(2); close(mList); }
+		if(!isType(newType)) { parseErrMsg(2); close(mList, symTable); }
 		offset+=newType.length();
 
 		skipDelimiter(ifile);
-		if(ifile.eof()) {parseErrMsg(2); close(mList);}
+		if(ifile.eof()) {parseErrMsg(2); close(mList, symTable);}
 		string newBuf = read(ifile);
-		if(!isDigit(newBuf)) {parseErrMsg(2); close(mList);}
+		if(!isDigit(newBuf)) {parseErrMsg(2); close(mList, symTable);}
 		offset+=newBuf.length();
 
 		//mList[idx]->instrList.push_back(new instruction(newType, newBuf));
@@ -223,13 +223,13 @@ void readfile1(ifstream& ifile, vector<module*>& mList, unordered_map<string, sy
 
 			readDefList(ifile, mList, i, symTable);
 			skipDelimiter(ifile);
-			if(ifile.eof()) {parseErrMsg(0); close(mList);}
+			if(ifile.eof()) {parseErrMsg(0); close(mList, symTable);}
 
-			readUseList(ifile, mList, i);
+			readUseList(ifile, mList, i, symTable);
 			skipDelimiter(ifile);
-			if(ifile.eof()) {parseErrMsg(0); close(mList);}
+			if(ifile.eof()) {parseErrMsg(0); close(mList,  symTable);}
 
-			readInstrList(ifile, mList, i);
+			readInstrList(ifile, mList, i, symTable);
 			skipDelimiter(ifile);
 		}
 		i++;
@@ -254,8 +254,15 @@ void output(vector<module*>& mList)
 	// cout<<endl;
 }
 
-void cleanMem(vector<module*>& mList)
+void cleanMem(vector<module*>& mList, unordered_map<string, symbol*>& symTable)
 {
+	for(unsigned int i=0;i<mList.size();i++) delete mList[i];
+
+	for(unordered_map<string, symbol*>::iterator it=symTable.begin();
+		it!=symTable.end();
+		++it) {
+		delete it->second;
+	}
 	// for(unsigned int i=0;i<mList.size();i++) {
 	// 	module* m = mList[i];
 	// 	vector<symbol*> defs = m->defList;
@@ -388,6 +395,7 @@ void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_
 				cout<<setw(4)<<setfill('0')<<address<<" Error: External address exceeds length of uselist; treated as immediate"<<endl;
 			}
 			else if(addcode<numUse) {
+				used[addcode]=true;
 				//cout<<"Check "<<(symTable.find(useList[addcode])==symTable.end())<<endl;
 				cout<<opcode;
 				unordered_map<string ,symbol*>::iterator got=symTable.find(useList[addcode]);
@@ -396,7 +404,7 @@ void readInstrList2(ifstream& ifile, vector<module*>& mList, int idx, unordered_
 				}
 				else {
 					cout<<setw(3)<<setfill('0')<<symTable.find(useList[addcode])->second->val<<endl;
-					used[addcode]=true;
+
 				}
 			}
 		}
@@ -442,7 +450,6 @@ void readfile2(ifstream& ifile, vector<module*>& mList, unordered_map<string, sy
 
 		i++;
 	}
-
 	cout<<endl;
 	printWarning(symTable);
 }
@@ -473,7 +480,7 @@ int main(int argc, char** argv)
 	//printMemMap();
 	//output(mList);
 
-	cleanMem(mList);
+	cleanMem(mList, symTable);
 
 	ifile.close();
 	return 0;
