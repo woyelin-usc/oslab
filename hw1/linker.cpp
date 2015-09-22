@@ -104,9 +104,9 @@ bool isSymbol(string& str)
 void parseErrMsg(int type, bool special)
 {
 	static string errstr[] = {"NUM_EXPECTED", "SYM_EXPECTED", "ADDR_EXPECTED", 
-	"SYM_TOLONG", "TO_MANY_DEF_IN_MODULE", "TO_MANY_USE_IN_MODULE", "TO_MANY_INSTR",};
+	"SYM_TOLONG", "TO_MANY_DEF_IN_MODULE", "TO_MANY_USE_IN_MODULE", "TO_MANY_INSTR"};
 
-	if(special) cout<<"Parse Error line "<<lineNum-1<<" offset "<<lastLineOffset<<": "<<errstr[type]<<endl;
+	if(special && offset==1) cout<<"Parse Error line "<<lineNum-1<<" offset "<<lastLineOffset<<": "<<errstr[type]<<endl;
 	else cout<<"Parse Error line "<<lineNum<<" offset "<<offset<<": "<<errstr[type]<<endl;
 }
 
