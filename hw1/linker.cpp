@@ -15,10 +15,8 @@ int offset=1, lastLineOffset=0;
 int totalInstr=0;
 
 vector<string> symOrderRecord;
-
 vector<int> moduleForSymNotUse;
 vector<string> symNotUse;
-
 
 struct symbol
 {
@@ -27,48 +25,15 @@ struct symbol
 	bool multiDef;
 	int moduleIdx;
 	bool defNoUse;
-
-	symbol() {this->name=""; this->val=0;}
 	symbol(string name, int val) { this->name = name; this->val = val; multiDef=false; moduleIdx=-1; defNoUse=true;}
-};
-
-struct instruction 
-{
-	string type, buf;
-	instruction() {type=""; buf="";}
-	instruction(string type, string buf) {this->type=type; this->buf=buf;}
 };
 
 struct module 
 {
 	int base;
-
-	//int numSymDef;
-	//vector<symbol*> defList;
-
-	//int numSymUse;
-	//vector<string> useList;
-
 	int numInstr;
-	//vector<instruction*> instrList;
-
 	module() {this->base=0; this->numInstr=0;}
 };
-
-bool isDigit(string&);
-bool isSymbol(string&);
-bool isType(string&);
-void parseErrMsg(int, bool);
-string read(ifstream&);
-void skipDelimiter(ifstream&);
-void readDefList1(ifstream& , vector<module*>& , int);
-void readUseList1(ifstream& , vector<module*>& , map<string, symbol*>&);
-void readInstrList1(ifstream&,vector<module*>&, int, map<string, symbol*>&);
-void readfile1(ifstream&, vector<module*>&, string&);
-void cleanMem(vector<module*>&, map<string, symbol*>&);
-void close(vector<module*>&, map<string, symbol*>&);
-void printSymTable(vector<module*>&, map<string, symbol*>&);
-
 
 int stoi(string str) 
 {
@@ -77,6 +42,18 @@ int stoi(string str)
 	int num;
 	ss>>num;
 	return num;
+}
+
+// clean all symbol* and module* which have been dynamically allocated
+void cleanMem(vector<module*>& mList, map<string, symbol*>& symTable)
+{
+	for(unsigned int i=0;i<mList.size();i++) delete mList[i];
+
+	for(map<string, symbol*>::iterator it=symTable.begin();
+		it!=symTable.end();
+		++it) {
+		delete it->second;
+	}
 }
 
 void close(vector<module*>& mList, map<string, symbol*>& symTable)
@@ -148,7 +125,6 @@ void readDefList1(ifstream& ifile, vector<module*>& mList, int idx, map<string, 
 {
 	string tmp=read(ifile);
 	if(!isDigit(tmp)) {parseErrMsg(0, false); close(mList, symTable);}
-	//mList[idx]->numSymDef=stoi(tmp);
 	if(stoi(tmp)>16) { parseErrMsg(4, false); close(mList, symTable); }
 	offset+=tmp.length();
 
@@ -164,8 +140,6 @@ void readDefList1(ifstream& ifile, vector<module*>& mList, int idx, map<string, 
 		string symVal=read(ifile);
 		if(!isDigit(symVal)){ parseErrMsg(0, false); close(mList, symTable);}
 		offset+=symVal.length();
-
-		//symbol* newSym = new symbol(symName, stoi(symVal)+mList[idx]->base );
 		
 		// check whether has multi defined
 		map<string,symbol*>::iterator got=symTable.find(symName);
@@ -185,7 +159,6 @@ void readUseList1(ifstream& ifile, vector<module*>& mList, map<string, symbol*>&
 {
 	string tmp=read(ifile);
 	if(!isDigit(tmp)) { parseErrMsg(0, false); close(mList, symTable); }
-	//mList[idx]->numSymUse=stoi(tmp);
 	if(stoi(tmp)>16) {parseErrMsg(5, false);close(mList, symTable);}
 	offset+=tmp.length();
 
@@ -195,7 +168,6 @@ void readUseList1(ifstream& ifile, vector<module*>& mList, map<string, symbol*>&
 		string symName=read(ifile);
 		if(!isSymbol(symName)) { parseErrMsg(1, false); close(mList, symTable);}
 		offset+=symName.length();
-		//mList[idx]->useList.push_back(symName);
 	}
 
 }
@@ -223,8 +195,6 @@ void readInstrList1(ifstream& ifile,vector<module*>& mList, int idx, map<string,
 		string newBuf = read(ifile);
 		if(!isDigit(newBuf)) {parseErrMsg(2, false); close(mList, symTable);}
 		offset+=newBuf.length();
-
-		//mList[idx]->instrList.push_back(new instruction(newType, newBuf));
 	}
 }
 
@@ -257,44 +227,6 @@ void readfile1(ifstream& ifile, vector<module*>& mList, map<string, symbol*>& sy
 	}
 }
 
-void output(vector<module*>& mList) 
-{
-	// cout<<"MODULE SIZE: "<<mList.size()<<endl;
-	
-	// cout<<"BASE ADDRESS: ";
-	// for(unsigned int i=0;i<mList.size();i++) cout<<mList[i]->base<<",";
-	// cout<<endl;
-	
-	// cout<<"SYMBOL TABLE:";
-	// for(unsigned int i=0;i<mList.size();i++) {
-	// 	vector<symbol*> tmpList = mList[i]->defList;
-	// 	for(unsigned int j=0;j<tmpList.size();j++) {
-	// 		cout<<" "<<tmpList[j]->name<<"="<<tmpList[j]->val;
-	// 	}
-	// }
-	// cout<<endl;
-}
-
-// clean all symbol* and module* which have been dynamically allocated
-void cleanMem(vector<module*>& mList, map<string, symbol*>& symTable)
-{
-	for(unsigned int i=0;i<mList.size();i++) delete mList[i];
-
-	for(map<string, symbol*>::iterator it=symTable.begin();
-		it!=symTable.end();
-		++it) {
-		delete it->second;
-	}
-	// for(unsigned int i=0;i<mList.size();i++) {
-	// 	module* m = mList[i];
-	// 	vector<symbol*> defs = m->defList;
-	// 	for(unsigned j=0; j<defs.size();j++) delete defs[j];
-	// 	vector<instruction*> instrs = m->instrList;
-	// 	for(unsigned j=0; j<instrs.size();j++) delete instrs[j];
-	// 	delete m;
-	// }	
-}
-
 void printSymTable(vector<module*>& mList, map<string, symbol*>& symTable)
 {
 
@@ -317,20 +249,6 @@ void printSymTable(vector<module*>& mList, map<string, symbol*>& symTable)
 		if(sym->multiDef) cout<<" Error: This variable is multiple times defined; first value used";
 		cout<<endl;
 	}	
-}
-
-void printMemMap(vector<module*>& mList)
-{
-	// cout<<"Memory Map"<<endl;
-	// int idx=0;
-	// for(int i=0;i<mList.size();i++) {
-	// 	module* m=mList[i];
-	// 	for(int j=0;j<m->instrList.size();j++) {
-	// 		instruction* instr=m->instrList[j];
-	// 		cout<<setw(3)<<setfill('0')<<idx++<<": ";
-
-	// 	}
-	// }
 }
 
 void readDefList2(ifstream& ifile, int numDef)
@@ -499,10 +417,6 @@ int main(int argc, char** argv)
 	cout<<"Memory Map"<<endl;
 	map<int, vector<string> > use;
 	readfile2(ifile, mList, symTable);
-
-
-	//printMemMap();
-	//output(mList);
 
 	cleanMem(mList, symTable);
 
