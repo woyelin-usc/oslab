@@ -366,7 +366,7 @@ void printWarning(map<string, symbol*>& symTable)
 	for(unsigned int i=0;i<symOrderRecord.size();i++) {
 		symbol* sym = symTable.find(symOrderRecord[i])->second;
 		if(sym->defNoUse) {
-			cout<<"Warning: Module "<<sym->moduleIdx+1<<" : "
+			cout<<"Warning: Module "<<sym->moduleIdx+1<<": "
 			<<sym->name<<" was defined but never used"<<endl;
 		}
 	}
