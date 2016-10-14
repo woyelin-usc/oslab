@@ -1,0 +1,2 @@
+scheduler:
+	g++48 -std=gnu++11 -static-libstdc++ -o scheduler sched.cpp
